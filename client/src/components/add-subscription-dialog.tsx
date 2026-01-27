@@ -1,0 +1,250 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { billingCycles, categories } from "@shared/schema";
+import { getCategoryLabel, getBillingCycleLabel } from "@/lib/utils";
+
+const formSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  cost: z.string().min(1, "Cost is required").refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+    "Cost must be a positive number"
+  ),
+  billingCycle: z.enum(billingCycles),
+  category: z.enum(categories),
+  startDate: z.string().min(1, "Start date is required"),
+  notes: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface AddSubscriptionDialogProps {
+  onAdd: (data: {
+    name: string;
+    cost: number;
+    billingCycle: string;
+    category: string;
+    startDate: Date;
+    notes?: string;
+  }) => void;
+  isPending?: boolean;
+}
+
+export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialogProps) {
+  const [open, setOpen] = useState(false);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      cost: "",
+      billingCycle: "monthly",
+      category: "other",
+      startDate: new Date().toISOString().split("T")[0],
+      notes: "",
+    },
+  });
+
+  const onSubmit = (values: FormValues) => {
+    onAdd({
+      name: values.name,
+      cost: Math.round(parseFloat(values.cost) * 100),
+      billingCycle: values.billingCycle,
+      category: values.category,
+      startDate: new Date(values.startDate),
+      notes: values.notes || undefined,
+    });
+    form.reset();
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button data-testid="button-add-subscription">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Subscription
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add Subscription</DialogTitle>
+          <DialogDescription>
+            Add a new subscription to track. You can log usage and set cancellation reminders.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Service Name</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Netflix, Spotify, etc." 
+                      {...field} 
+                      data-testid="input-subscription-name"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="cost"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cost ($)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        placeholder="9.99" 
+                        {...field} 
+                        data-testid="input-subscription-cost"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="billingCycle"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Billing Cycle</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-billing-cycle">
+                          <SelectValue placeholder="Select cycle" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {billingCycles.map((cycle) => (
+                          <SelectItem key={cycle} value={cycle}>
+                            {getBillingCycleLabel(cycle)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-category">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {getCategoryLabel(cat)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="startDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start Date</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="date" 
+                      {...field} 
+                      data-testid="input-start-date"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes (optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Any notes about this subscription" 
+                      {...field} 
+                      data-testid="input-notes"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                data-testid="button-cancel"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending} data-testid="button-submit">
+                Add Subscription
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
