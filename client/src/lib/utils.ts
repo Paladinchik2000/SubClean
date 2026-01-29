@@ -1,9 +1,37 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { 
+  Tv, 
+  Music, 
+  Gamepad2, 
+  Briefcase, 
+  Dumbbell, 
+  Newspaper, 
+  Cloud, 
+  UtensilsCrossed, 
+  Package,
+  type LucideIcon 
+} from "lucide-react";
 import type { BillingCycle, Category } from "@shared/schema";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+const categoryIcons: Record<Category, LucideIcon> = {
+  streaming: Tv,
+  music: Music,
+  gaming: Gamepad2,
+  productivity: Briefcase,
+  fitness: Dumbbell,
+  news: Newspaper,
+  cloud: Cloud,
+  food: UtensilsCrossed,
+  other: Package,
+};
+
+export function getCategoryIcon(category: Category | string): LucideIcon {
+  return categoryIcons[category as Category] || Package;
 }
 
 export function formatCurrency(cents: number): string {

@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -40,6 +41,9 @@ const formSchema = z.object({
   billingCycle: z.enum(billingCycles),
   category: z.enum(categories),
   startDate: z.string().min(1, "Start date is required"),
+  isTrial: z.boolean().default(false),
+  trialEndDate: z.string().optional(),
+  cancelInstructions: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -52,6 +56,8 @@ interface AddSubscriptionDialogProps {
     billingCycle: string;
     category: string;
     startDate: Date;
+    trialEndDate?: Date | null;
+    cancelInstructions?: string;
     notes?: string;
   }) => void;
   isPending?: boolean;
@@ -68,9 +74,14 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
       billingCycle: "monthly",
       category: "other",
       startDate: new Date().toISOString().split("T")[0],
+      isTrial: false,
+      trialEndDate: "",
+      cancelInstructions: "",
       notes: "",
     },
   });
+
+  const isTrial = form.watch("isTrial");
 
   const onSubmit = (values: FormValues) => {
     onAdd({
@@ -79,6 +90,8 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
       billingCycle: values.billingCycle,
       category: values.category,
       startDate: new Date(values.startDate),
+      trialEndDate: values.isTrial && values.trialEndDate ? new Date(values.trialEndDate) : null,
+      cancelInstructions: values.cancelInstructions || undefined,
       notes: values.notes || undefined,
     });
     form.reset();
@@ -93,7 +106,7 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
           Add Subscription
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Subscription</DialogTitle>
           <DialogDescription>
@@ -204,6 +217,63 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
                       type="date" 
                       {...field} 
                       data-testid="input-start-date"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isTrial"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="checkbox-trial"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>This is a free trial</FormLabel>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {isTrial && (
+              <FormField
+                control={form.control}
+                name="trialEndDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Trial End Date</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="date" 
+                        {...field} 
+                        data-testid="input-trial-end-date"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <FormField
+              control={form.control}
+              name="cancelInstructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cancel Instructions URL (optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="https://..." 
+                      {...field} 
+                      data-testid="input-cancel-instructions"
                     />
                   </FormControl>
                   <FormMessage />
