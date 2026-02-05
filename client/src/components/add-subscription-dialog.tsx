@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { billingCycles, categories, currencies, currencySymbols, type Currency } from "@shared/schema";
+import { billingCycles, categories, currencies, currencySymbols, type Currency, type SubscriptionWithUsage } from "@shared/schema";
 import { getCategoryLabel, getBillingCycleLabel } from "@/lib/utils";
 
 const formSchema = z.object({
@@ -64,10 +65,12 @@ interface AddSubscriptionDialogProps {
   }) => void;
   isPending?: boolean;
   defaultCurrency?: Currency;
+  existingSubscriptions?: SubscriptionWithUsage[];
 }
 
-export function AddSubscriptionDialog({ onAdd, isPending, defaultCurrency = "USD" }: AddSubscriptionDialogProps) {
+export function AddSubscriptionDialog({ onAdd, isPending, defaultCurrency = "USD", existingSubscriptions = [] }: AddSubscriptionDialogProps) {
   const [open, setOpen] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -86,6 +89,26 @@ export function AddSubscriptionDialog({ onAdd, isPending, defaultCurrency = "USD
   });
 
   const isTrial = form.watch("isTrial");
+  const watchedName = form.watch("name");
+
+  useEffect(() => {
+    if (watchedName.trim().length >= 3) {
+      const normalizedInput = watchedName.toLowerCase().trim();
+      const duplicate = existingSubscriptions.find(sub => {
+        const normalizedExisting = sub.name.toLowerCase().trim();
+        return normalizedExisting === normalizedInput || 
+               normalizedExisting.includes(normalizedInput) || 
+               normalizedInput.includes(normalizedExisting);
+      });
+      if (duplicate && duplicate.status !== "cancelled") {
+        setDuplicateWarning(`Similar subscription found: "${duplicate.name}"`);
+      } else {
+        setDuplicateWarning(null);
+      }
+    } else {
+      setDuplicateWarning(null);
+    }
+  }, [watchedName, existingSubscriptions]);
 
   const onSubmit = (values: FormValues) => {
     onAdd({
@@ -120,6 +143,15 @@ export function AddSubscriptionDialog({ onAdd, isPending, defaultCurrency = "USD
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {duplicateWarning && (
+              <Alert variant="destructive" className="py-2" data-testid="alert-duplicate-warning">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="ml-2">
+                  {duplicateWarning}
+                </AlertDescription>
+              </Alert>
+            )}
+
             <FormField
               control={form.control}
               name="name"

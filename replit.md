@@ -41,14 +41,17 @@ Preferred communication style: Simple, everyday language.
 - **Onboarding Flow**: Welcome screen with value proposition and privacy information
 - **Home Dashboard**: Monthly and annual spending summaries, top 3 biggest subscriptions, payment calendar, quick stats (avg per subscription, daily cost)
 - **Payment Calendar**: Visual calendar showing upcoming payment dates with 30-day summary and date selection
-- **Subscriptions List**: Filterable by monthly/yearly/trials/flagged subscriptions
+- **Subscriptions List**: Filterable by monthly/yearly/trials/flagged subscriptions with search bar for filtering by name
 - **Subscription Detail**: Charge history timeline, next billing date, usage tracking, cancel actions
-- **Analytics Page**: Category spending pie chart, billing cycle bar chart, spending breakdown, key metrics
+- **Analytics Page**: Category spending pie chart, billing cycle bar chart, spending breakdown, key metrics, 6-month spending trends chart with month-over-month comparison
 - **Savings Tracking**: Monitor cancelled subscriptions and total money saved
 - **Alerts System**: Price increases, upcoming renewals, trial endings, unused subscriptions
-- **Settings Page**: Currency preferences, notification settings, data export
+- **Settings Page**: Currency preferences, notification settings, data export/import
 - **Multi-Currency Support**: 21 currencies (USD, EUR, GBP, JPY, RUB, SEK, PLN, INR, CHF, BRL, COP, UAH, RON, HUF, CAD, AUD, GEL, KRW, KZT, TRY, BDT)
 - **Data Export**: Export subscription data as JSON or CSV
+- **Bulk CSV Import**: Import subscriptions from CSV files (Name, Cost columns required; Billing Cycle, Category, Currency optional)
+- **Duplicate Detection**: Warns when adding a subscription similar to an existing one
+- **Search Functionality**: Filter subscriptions by name on the Subscriptions page
 - **Sidebar Navigation**: Easy navigation between Home, Subscriptions, Analytics, Savings, Alerts, Settings
 - Usage tracking with "days since last use" calculations
 - Trial subscription support with end date tracking

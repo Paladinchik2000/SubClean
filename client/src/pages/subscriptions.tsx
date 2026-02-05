@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Filter, Plus, CreditCard, Calendar, AlertTriangle, Flag } from "lucide-react";
+import { Filter, Plus, CreditCard, Calendar, AlertTriangle, Flag, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, getMonthlyCost, getCategoryIcon, getCategoryLabel } from "@/lib/utils";
@@ -18,6 +19,7 @@ type FilterType = "all" | "monthly" | "yearly" | "trials" | "flagged";
 export default function Subscriptions() {
   const { toast } = useToast();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: subscriptions, isLoading } = useQuery<SubscriptionWithUsage[]>({
     queryKey: ["/api/subscriptions"],
@@ -61,6 +63,11 @@ export default function Subscriptions() {
   const activeSubscriptions = subscriptions?.filter(s => s.status !== "cancelled") || [];
 
   const filteredSubscriptions = activeSubscriptions.filter((sub) => {
+    const matchesSearch = searchQuery.trim() === "" || 
+      sub.name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
     switch (filter) {
       case "monthly":
         return sub.billingCycle === "monthly";
@@ -104,6 +111,18 @@ export default function Subscriptions() {
           onAdd={(data) => addMutation.mutate(data)}
           isPending={addMutation.isPending}
           defaultCurrency={appState?.defaultCurrency}
+          existingSubscriptions={subscriptions || []}
+        />
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Search subscriptions..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+          data-testid="input-search-subscriptions"
         />
       </div>
 
@@ -153,6 +172,7 @@ export default function Subscriptions() {
                 onAdd={(data) => addMutation.mutate(data)}
                 isPending={addMutation.isPending}
                 defaultCurrency={appState?.defaultCurrency}
+                existingSubscriptions={subscriptions || []}
               />
             )}
           </CardContent>

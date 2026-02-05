@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, PieChart as PieChartIcon, TrendingUp, DollarSign } from "lucide-react";
+import { BarChart3, PieChart as PieChartIcon, TrendingUp, DollarSign, TrendingDown } from "lucide-react";
 import { 
   PieChart, 
   Pie, 
@@ -11,7 +11,11 @@ import {
   Bar,
   XAxis,
   YAxis,
-  CartesianGrid
+  CartesianGrid,
+  LineChart,
+  Line,
+  Area,
+  AreaChart
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,6 +96,43 @@ export default function Analytics() {
   });
 
   const barData = billingCycleData.filter(d => d.count > 0);
+
+  const generateSpendingTrends = () => {
+    const months: { month: string; spending: number; subscriptions: number }[] = [];
+    const now = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthName = date.toLocaleDateString("en-US", { month: "short" });
+      
+      const activeInMonth = subscriptions?.filter(sub => {
+        const startDate = new Date(sub.startDate);
+        const cancelledDate = sub.cancelledDate ? new Date(sub.cancelledDate) : null;
+        const wasActiveInMonth = startDate <= date && (!cancelledDate || cancelledDate > date);
+        return wasActiveInMonth;
+      }) || [];
+      
+      const monthlySpending = activeInMonth.reduce((acc, sub) => {
+        return acc + getMonthlyCost(sub.cost, sub.billingCycle);
+      }, 0);
+      
+      months.push({
+        month: monthName,
+        spending: Math.round(monthlySpending) / 100,
+        subscriptions: activeInMonth.length,
+      });
+    }
+    
+    return months;
+  };
+
+  const spendingTrends = generateSpendingTrends();
+  const lastMonthSpending = spendingTrends[spendingTrends.length - 2]?.spending || 0;
+  const currentMonthSpending = spendingTrends[spendingTrends.length - 1]?.spending || 0;
+  const spendingChange = currentMonthSpending - lastMonthSpending;
+  const spendingChangePercent = lastMonthSpending > 0 
+    ? Math.round((spendingChange / lastMonthSpending) * 100) 
+    : 0;
 
   if (isLoading) {
     return (
@@ -284,6 +325,69 @@ export default function Analytics() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {spendingChange >= 0 ? (
+              <TrendingUp className="w-5 h-5 text-red-500" />
+            ) : (
+              <TrendingDown className="w-5 h-5 text-green-500" />
+            )}
+            Spending Trends (6 Months)
+          </CardTitle>
+          {spendingChangePercent !== 0 && (
+            <p className={`text-sm ${spendingChange >= 0 ? "text-red-500" : "text-green-500"}`}>
+              {spendingChange >= 0 ? "+" : ""}{spendingChangePercent}% vs last month
+            </p>
+          )}
+        </CardHeader>
+        <CardContent>
+          {spendingTrends.every(t => t.spending === 0) ? (
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              No spending data to display
+            </div>
+          ) : (
+            <div className="h-64" data-testid="chart-spending-trends">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={spendingTrends}>
+                  <defs>
+                    <linearGradient id="spendingGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(262, 83%, 58%)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(262, 83%, 58%)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `$${value}`}
+                    tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Monthly Spending"]}
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      color: "hsl(var(--foreground))",
+                    }}
+                  />
+                  <Area 
+                    type="monotone"
+                    dataKey="spending" 
+                    stroke="hsl(262, 83%, 58%)" 
+                    strokeWidth={2}
+                    fill="url(#spendingGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

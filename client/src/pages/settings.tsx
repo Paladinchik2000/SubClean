@@ -1,7 +1,8 @@
+import { useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Settings as SettingsIcon, Download, Globe, Bell, Smartphone, Save } from "lucide-react";
+import { Settings as SettingsIcon, Download, Globe, Bell, Smartphone, Save, Upload, FileUp, Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -26,9 +27,20 @@ import {
 import { currencies, currencySymbols, settingsSchema, type Settings } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useEffect } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface ImportResult {
+  success: number;
+  failed: number;
+  errors: string[];
+}
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
   const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ["/api/settings"],
   });
@@ -83,6 +95,98 @@ export default function SettingsPage() {
       title: "Export started",
       description: `Your data is being exported as ${format.toUpperCase()}.`,
     });
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    setImportResult(null);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        throw new Error("CSV file must have at least a header row and one data row");
+      }
+
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+      const nameIdx = headers.findIndex(h => h === 'name' || h === 'service' || h === 'subscription');
+      const costIdx = headers.findIndex(h => h === 'cost' || h === 'price' || h === 'amount');
+      const cycleIdx = headers.findIndex(h => h === 'billing' || h === 'billing cycle' || h === 'cycle' || h === 'frequency');
+      const categoryIdx = headers.findIndex(h => h === 'category' || h === 'type');
+      const currencyIdx = headers.findIndex(h => h === 'currency');
+
+      if (nameIdx === -1 || costIdx === -1) {
+        throw new Error("CSV must have 'Name' and 'Cost' columns");
+      }
+
+      const results: ImportResult = { success: 0, failed: 0, errors: [] };
+      const billingCycleMap: Record<string, string> = {
+        'monthly': 'monthly', 'month': 'monthly', 'm': 'monthly',
+        'yearly': 'yearly', 'annual': 'yearly', 'year': 'yearly', 'y': 'yearly',
+        'weekly': 'weekly', 'week': 'weekly', 'w': 'weekly',
+        'quarterly': 'quarterly', 'quarter': 'quarterly', 'q': 'quarterly',
+      };
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const name = values[nameIdx];
+        const costStr = values[costIdx]?.replace(/[^0-9.]/g, '');
+        const cost = parseFloat(costStr);
+
+        if (!name || isNaN(cost) || cost <= 0) {
+          results.failed++;
+          results.errors.push(`Row ${i + 1}: Invalid name or cost`);
+          continue;
+        }
+
+        const cycleRaw = cycleIdx !== -1 ? values[cycleIdx]?.toLowerCase() : 'monthly';
+        const billingCycle = billingCycleMap[cycleRaw] || 'monthly';
+        const category = categoryIdx !== -1 ? values[categoryIdx]?.toLowerCase() : 'other';
+        const currency = currencyIdx !== -1 ? values[currencyIdx]?.toUpperCase() : 'USD';
+
+        try {
+          await apiRequest("POST", "/api/subscriptions", {
+            name,
+            cost: Math.round(cost * 100),
+            currency,
+            billingCycle,
+            category: ['streaming', 'music', 'gaming', 'productivity', 'fitness', 'news', 'cloud', 'food', 'other'].includes(category) ? category : 'other',
+            startDate: new Date(),
+          });
+          results.success++;
+        } catch {
+          results.failed++;
+          results.errors.push(`Row ${i + 1}: Failed to import "${name}"`);
+        }
+      }
+
+      setImportResult(results);
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
+      
+      toast({
+        title: "Import complete",
+        description: `${results.success} subscription(s) imported successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "Failed to parse CSV file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   if (isLoading) {
@@ -252,31 +356,85 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Download className="w-5 h-5" />
-                Data Export
+                Data Export & Import
               </CardTitle>
               <CardDescription>
-                Export your subscription data for backup or analysis.
+                Export your subscription data for backup or import from CSV.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              <Button 
-                type="button"
-                variant="outline" 
-                onClick={() => handleExport('json')}
-                data-testid="button-export-json"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export as JSON
-              </Button>
-              <Button 
-                type="button"
-                variant="outline" 
-                onClick={() => handleExport('csv')}
-                data-testid="button-export-csv"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export as CSV
-              </Button>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => handleExport('json')}
+                  data-testid="button-export-json"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export as JSON
+                </Button>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => handleExport('csv')}
+                  data-testid="button-export-csv"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export as CSV
+                </Button>
+              </div>
+              
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium mb-2">Import from CSV</p>
+                <p className="text-sm text-muted-foreground mb-3">
+                  CSV must have "Name" and "Cost" columns. Optional: "Billing Cycle", "Category", "Currency".
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  data-testid="input-import-csv"
+                />
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={handleImportClick}
+                  disabled={isImporting}
+                  data-testid="button-import-csv"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {isImporting ? "Importing..." : "Import from CSV"}
+                </Button>
+
+                {importResult && (
+                  <Alert className="mt-3" variant={importResult.failed > 0 ? "destructive" : "default"}>
+                    <AlertDescription>
+                      <div className="flex items-center gap-2">
+                        {importResult.failed === 0 ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <X className="w-4 h-4" />
+                        )}
+                        <span>
+                          {importResult.success} imported, {importResult.failed} failed
+                        </span>
+                      </div>
+                      {importResult.errors.length > 0 && (
+                        <ul className="mt-2 text-xs space-y-1">
+                          {importResult.errors.slice(0, 3).map((err, i) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                          {importResult.errors.length > 3 && (
+                            <li>...and {importResult.errors.length - 3} more errors</li>
+                          )}
+                        </ul>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </CardContent>
           </Card>
 
