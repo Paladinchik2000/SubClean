@@ -22,17 +22,27 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Framework**: Express.js 5 with TypeScript
 - **API Design**: RESTful API endpoints under `/api/` prefix
+- **Authentication**: Replit Auth (OpenID Connect) supporting Google, GitHub, and email/password login
 - **Development Server**: Vite dev server with HMR, proxied through Express
 - **Production Build**: esbuild for server bundling, Vite for client bundling
 
 ### Data Layer
 - **ORM**: Drizzle ORM with PostgreSQL dialect
+- **Database**: PostgreSQL with user-specific data isolation via userId
 - **Schema Definition**: Shared schema in `shared/schema.ts` with Drizzle-Zod for validation
-- **Storage Abstraction**: Interface-based storage pattern (`IStorage`) with in-memory implementation
+- **Auth Models**: User and session models in `shared/models/auth.ts`
+- **Storage Abstraction**: Interface-based storage pattern (`IStorage`) with in-memory implementation (all methods now require userId)
 - **Database Migrations**: Drizzle Kit for schema migrations (`db:push` command)
 
+### Authentication & Authorization
+- **Provider**: Replit Auth (OIDC-based) via `server/replit_integrations/auth/`
+- **Auth Routes**: `/api/login` (start OAuth flow), `/api/logout` (end session), `/api/auth/user` (get current user)
+- **Session Storage**: PostgreSQL sessions table using connect-pg-simple
+- **Middleware**: `isAuthenticated` middleware protects all API routes
+- **Data Isolation**: All subscriptions, settings, and alerts are user-specific via userId foreign key
+
 ### Core Data Models
-- **Users**: Basic authentication with username/password
+- **Users**: Authentication via Replit Auth (id, email, firstName, lastName from OIDC claims)
 - **Subscriptions**: Tracks name, cost (in cents), currency, billing cycle, category, dates, and cancellation status
 - **Usage Records**: Logs when subscriptions are used for activity tracking
 - **Settings**: User preferences including defaultCurrency, emailNotifications, pushoverNotifications, pushoverUserKey, renewalReminderDays

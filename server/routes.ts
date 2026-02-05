@@ -12,8 +12,10 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-function getUserId(req: AuthenticatedRequest): string {
-  return req.user?.claims?.sub || "";
+function getUserId(req: AuthenticatedRequest): string | null {
+  const userId = req.user?.claims?.sub;
+  if (!userId) return null;
+  return userId;
 }
 
 function getParam(param: string | string[]): string {
@@ -31,6 +33,9 @@ export async function registerRoutes(
   app.get("/api/app-state", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const state = await storage.getAppState(userId);
       res.json(state);
     } catch (error) {
@@ -42,6 +47,9 @@ export async function registerRoutes(
   app.post("/api/onboarding/complete", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       await storage.setOnboardingComplete(userId, true);
       res.json({ success: true });
     } catch (error) {
@@ -53,6 +61,9 @@ export async function registerRoutes(
   app.get("/api/subscriptions", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const subscriptions = await storage.getAllSubscriptions(userId);
       res.json(subscriptions);
     } catch (error) {
@@ -64,6 +75,9 @@ export async function registerRoutes(
   app.get("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const subscription = await storage.getSubscription(userId, id);
       if (!subscription) {
@@ -79,6 +93,9 @@ export async function registerRoutes(
   app.post("/api/subscriptions", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const parsed = insertSubscriptionSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
@@ -106,6 +123,9 @@ export async function registerRoutes(
   app.patch("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const parsed = updateSubscriptionSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -126,6 +146,9 @@ export async function registerRoutes(
   app.patch("/api/subscriptions/:id/toggle-cancellation", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const existing = await storage.getSubscription(userId, id);
       if (!existing) {
@@ -146,6 +169,9 @@ export async function registerRoutes(
   app.post("/api/subscriptions/:id/cancel", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const subscription = await storage.cancelSubscription(userId, id);
       if (!subscription) {
@@ -161,6 +187,9 @@ export async function registerRoutes(
   app.delete("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const deleted = await storage.deleteSubscription(userId, id);
       if (!deleted) {
@@ -176,6 +205,9 @@ export async function registerRoutes(
   app.post("/api/subscriptions/:id/usage", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const subscription = await storage.getSubscription(userId, id);
       if (!subscription) {
@@ -197,6 +229,9 @@ export async function registerRoutes(
   app.get("/api/subscriptions/:id/usage", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const subscription = await storage.getSubscription(userId, id);
       if (!subscription) {
@@ -214,6 +249,9 @@ export async function registerRoutes(
   app.get("/api/alerts", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const alerts = await storage.getAlerts(userId);
       res.json(alerts);
     } catch (error) {
@@ -225,6 +263,9 @@ export async function registerRoutes(
   app.patch("/api/alerts/:id/dismiss", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const id = getParam(req.params.id);
       const alert = await storage.dismissAlert(userId, id);
       if (!alert) {
@@ -240,6 +281,9 @@ export async function registerRoutes(
   app.get("/api/savings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const savings = await storage.getSavings(userId);
       res.json(savings);
     } catch (error) {
@@ -251,6 +295,9 @@ export async function registerRoutes(
   app.get("/api/settings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const settings = await storage.getSettings(userId);
       res.json(settings);
     } catch (error) {
@@ -262,6 +309,9 @@ export async function registerRoutes(
   app.patch("/api/settings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const parsed = settingsSchema.partial().safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
@@ -277,6 +327,9 @@ export async function registerRoutes(
   app.get("/api/export/:format", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User ID not found" });
+      }
       const format = getParam(req.params.format) as 'json' | 'csv';
       if (format !== 'json' && format !== 'csv') {
         return res.status(400).json({ error: "Invalid format. Use 'json' or 'csv'" });
