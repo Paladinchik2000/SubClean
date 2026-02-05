@@ -1,6 +1,4 @@
 import { 
-  type User, 
-  type InsertUser, 
   type Subscription, 
   type InsertSubscription,
   type UsageRecord,
@@ -21,54 +19,53 @@ import {
 import { randomUUID } from "crypto";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  getAppState(): Promise<AppState>;
-  setOnboardingComplete(complete: boolean): Promise<void>;
-  getSettings(): Promise<Settings>;
-  updateSettings(settings: Partial<Settings>): Promise<Settings>;
+  getAppState(userId: string): Promise<AppState>;
+  setOnboardingComplete(userId: string, complete: boolean): Promise<void>;
+  getSettings(userId: string): Promise<Settings>;
+  updateSettings(userId: string, settings: Partial<Settings>): Promise<Settings>;
   
-  getAllSubscriptions(): Promise<SubscriptionWithUsage[]>;
-  getSubscription(id: string): Promise<SubscriptionWithUsage | undefined>;
-  createSubscription(subscription: InsertSubscription): Promise<Subscription>;
-  updateSubscription(id: string, data: Partial<Subscription>): Promise<Subscription | undefined>;
-  deleteSubscription(id: string): Promise<boolean>;
-  cancelSubscription(id: string): Promise<Subscription | undefined>;
+  getAllSubscriptions(userId: string): Promise<SubscriptionWithUsage[]>;
+  getSubscription(userId: string, id: string): Promise<SubscriptionWithUsage | undefined>;
+  createSubscription(userId: string, subscription: InsertSubscription): Promise<Subscription>;
+  updateSubscription(userId: string, id: string, data: Partial<Subscription>): Promise<Subscription | undefined>;
+  deleteSubscription(userId: string, id: string): Promise<boolean>;
+  cancelSubscription(userId: string, id: string): Promise<Subscription | undefined>;
   
-  addUsageRecord(record: InsertUsageRecord): Promise<UsageRecord>;
+  addUsageRecord(userId: string, record: InsertUsageRecord): Promise<UsageRecord>;
   getUsageRecords(subscriptionId: string): Promise<UsageRecord[]>;
   getLastUsage(subscriptionId: string): Promise<Date | null>;
   
-  getAlerts(): Promise<AlertWithSubscription[]>;
+  getAlerts(userId: string): Promise<AlertWithSubscription[]>;
   createAlert(alert: InsertAlert): Promise<Alert>;
-  dismissAlert(id: string): Promise<Alert | undefined>;
+  dismissAlert(userId: string, id: string): Promise<Alert | undefined>;
   
   addPriceHistory(history: InsertPriceHistory): Promise<PriceHistory>;
   getPriceHistory(subscriptionId: string): Promise<PriceHistory[]>;
   
-  getSavings(): Promise<{ totalSaved: number; cancelledSubscriptions: SubscriptionWithUsage[] }>;
+  getSavings(userId: string): Promise<{ totalSaved: number; cancelledSubscriptions: SubscriptionWithUsage[] }>;
   
-  exportData(format: 'json' | 'csv'): Promise<string>;
+  exportData(userId: string, format: 'json' | 'csv'): Promise<string>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
   private subscriptions: Map<string, Subscription>;
   private usageRecords: Map<string, UsageRecord>;
   private alerts: Map<string, Alert>;
   private priceHistories: Map<string, PriceHistory>;
-  private onboardingComplete: boolean;
-  private settings: Settings;
+  private userOnboarding: Map<string, boolean>;
+  private userSettings: Map<string, Settings>;
 
   constructor() {
-    this.users = new Map();
     this.subscriptions = new Map();
     this.usageRecords = new Map();
     this.alerts = new Map();
     this.priceHistories = new Map();
-    this.onboardingComplete = false;
-    this.settings = {
+    this.userOnboarding = new Map();
+    this.userSettings = new Map();
+  }
+
+  private getDefaultSettings(): Settings {
+    return {
       defaultCurrency: "USD",
       emailNotifications: false,
       pushoverNotifications: false,
@@ -76,45 +73,32 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id, onboardingComplete: false };
-    this.users.set(id, user);
-    return user;
-  }
-
-  async getAppState(): Promise<AppState> {
+  async getAppState(userId: string): Promise<AppState> {
+    const onboardingComplete = this.userOnboarding.get(userId) || false;
+    const settings = this.userSettings.get(userId) || this.getDefaultSettings();
     return { 
-      onboardingComplete: this.onboardingComplete,
-      ...this.settings,
+      onboardingComplete,
+      ...settings,
     };
   }
 
-  async setOnboardingComplete(complete: boolean): Promise<void> {
-    this.onboardingComplete = complete;
+  async setOnboardingComplete(userId: string, complete: boolean): Promise<void> {
+    this.userOnboarding.set(userId, complete);
   }
 
-  async getSettings(): Promise<Settings> {
-    return { ...this.settings };
+  async getSettings(userId: string): Promise<Settings> {
+    return this.userSettings.get(userId) || this.getDefaultSettings();
   }
 
-  async updateSettings(newSettings: Partial<Settings>): Promise<Settings> {
-    this.settings = { ...this.settings, ...newSettings };
-    return { ...this.settings };
+  async updateSettings(userId: string, newSettings: Partial<Settings>): Promise<Settings> {
+    const current = this.userSettings.get(userId) || this.getDefaultSettings();
+    const updated = { ...current, ...newSettings };
+    this.userSettings.set(userId, updated);
+    return updated;
   }
 
-  async getAllSubscriptions(): Promise<SubscriptionWithUsage[]> {
-    const subs = Array.from(this.subscriptions.values());
+  async getAllSubscriptions(userId: string): Promise<SubscriptionWithUsage[]> {
+    const subs = Array.from(this.subscriptions.values()).filter(s => s.userId === userId);
     const subsWithUsage: SubscriptionWithUsage[] = [];
 
     for (const sub of subs) {
@@ -172,9 +156,9 @@ export class MemStorage implements IStorage {
     return history.reverse();
   }
 
-  async getSubscription(id: string): Promise<SubscriptionWithUsage | undefined> {
+  async getSubscription(userId: string, id: string): Promise<SubscriptionWithUsage | undefined> {
     const sub = this.subscriptions.get(id);
-    if (!sub) return undefined;
+    if (!sub || sub.userId !== userId) return undefined;
 
     const lastUsed = await this.getLastUsage(sub.id);
     const usageRecords = await this.getUsageRecords(sub.id);
@@ -197,17 +181,19 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async createSubscription(insertSubscription: InsertSubscription): Promise<Subscription> {
+  async createSubscription(userId: string, insertSubscription: InsertSubscription): Promise<Subscription> {
     const id = randomUUID();
     const startDate = new Date(insertSubscription.startDate);
+    const settings = await this.getSettings(userId);
     
     const nextBillingDate = this.calculateNextBillingDate(startDate, insertSubscription.billingCycle);
     
     const subscription: Subscription = {
       id,
+      userId,
       name: insertSubscription.name,
       cost: insertSubscription.cost,
-      currency: (insertSubscription.currency || this.settings.defaultCurrency) as Currency,
+      currency: (insertSubscription.currency || settings.defaultCurrency) as Currency,
       billingCycle: insertSubscription.billingCycle as BillingCycle,
       category: insertSubscription.category as Category,
       status: insertSubscription.trialEndDate ? "trial" : "active",
@@ -240,9 +226,9 @@ export class MemStorage implements IStorage {
     return nextDate;
   }
 
-  async updateSubscription(id: string, data: Partial<Subscription>): Promise<Subscription | undefined> {
+  async updateSubscription(userId: string, id: string, data: Partial<Subscription>): Promise<Subscription | undefined> {
     const existing = this.subscriptions.get(id);
-    if (!existing) return undefined;
+    if (!existing || existing.userId !== userId) return undefined;
 
     if (data.cost && data.cost !== existing.cost) {
       await this.addPriceHistory({
@@ -269,9 +255,9 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async cancelSubscription(id: string): Promise<Subscription | undefined> {
+  async cancelSubscription(userId: string, id: string): Promise<Subscription | undefined> {
     const existing = this.subscriptions.get(id);
-    if (!existing) return undefined;
+    if (!existing || existing.userId !== userId) return undefined;
 
     const updated: Subscription = {
       ...existing,
@@ -283,7 +269,9 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async deleteSubscription(id: string): Promise<boolean> {
+  async deleteSubscription(userId: string, id: string): Promise<boolean> {
+    const existing = this.subscriptions.get(id);
+    if (!existing || existing.userId !== userId) return false;
     const deleted = this.subscriptions.delete(id);
     
     const usageToDelete = Array.from(this.usageRecords.values())
@@ -305,7 +293,7 @@ export class MemStorage implements IStorage {
     return deleted;
   }
 
-  async addUsageRecord(record: InsertUsageRecord): Promise<UsageRecord> {
+  async addUsageRecord(userId: string, record: InsertUsageRecord): Promise<UsageRecord> {
     const id = randomUUID();
     const usageRecord: UsageRecord = {
       id,
@@ -327,9 +315,15 @@ export class MemStorage implements IStorage {
     return records.length > 0 ? records[0].usedAt : null;
   }
 
-  async getAlerts(): Promise<AlertWithSubscription[]> {
+  async getAlerts(userId: string): Promise<AlertWithSubscription[]> {
+    const userSubIds = new Set(
+      Array.from(this.subscriptions.values())
+        .filter(s => s.userId === userId)
+        .map(s => s.id)
+    );
+    
     const alertsList = Array.from(this.alerts.values())
-      .filter(a => !a.dismissed)
+      .filter(a => !a.dismissed && userSubIds.has(a.subscriptionId))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     
     const alertsWithSubs: AlertWithSubscription[] = [];
@@ -358,9 +352,12 @@ export class MemStorage implements IStorage {
     return newAlert;
   }
 
-  async dismissAlert(id: string): Promise<Alert | undefined> {
+  async dismissAlert(userId: string, id: string): Promise<Alert | undefined> {
     const existing = this.alerts.get(id);
     if (!existing) return undefined;
+    
+    const sub = this.subscriptions.get(existing.subscriptionId);
+    if (!sub || sub.userId !== userId) return undefined;
 
     const updated: Alert = {
       ...existing,
@@ -389,8 +386,8 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.changedAt.getTime() - a.changedAt.getTime());
   }
 
-  async getSavings(): Promise<{ totalSaved: number; cancelledSubscriptions: SubscriptionWithUsage[] }> {
-    const allSubs = await this.getAllSubscriptions();
+  async getSavings(userId: string): Promise<{ totalSaved: number; cancelledSubscriptions: SubscriptionWithUsage[] }> {
+    const allSubs = await this.getAllSubscriptions(userId);
     const cancelledSubs = allSubs.filter(s => s.status === "cancelled");
     
     let totalSaved = 0;
@@ -414,8 +411,9 @@ export class MemStorage implements IStorage {
     return { totalSaved, cancelledSubscriptions: cancelledSubs };
   }
 
-  async exportData(format: 'json' | 'csv'): Promise<string> {
-    const subs = await this.getAllSubscriptions();
+  async exportData(userId: string, format: 'json' | 'csv'): Promise<string> {
+    const subs = await this.getAllSubscriptions(userId);
+    const settings = await this.getSettings(userId);
     
     if (format === 'json') {
       return JSON.stringify({
@@ -435,7 +433,7 @@ export class MemStorage implements IStorage {
           usageCount: s.usageCount,
         })),
         exportedAt: new Date().toISOString(),
-        settings: this.settings,
+        settings: settings,
       }, null, 2);
     } else {
       const headers = ['Name', 'Cost', 'Currency', 'Billing Cycle', 'Category', 'Status', 'Start Date', 'Trial End Date', 'Cancelled Date', 'Notes', 'Last Used', 'Days Since Last Use', 'Usage Count'];

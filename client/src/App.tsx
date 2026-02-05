@@ -17,7 +17,9 @@ import {
   SidebarTrigger,
   SidebarInset
 } from "@/components/ui/sidebar";
-import { Home, CreditCard, PiggyBank, Bell, Menu, BarChart3, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Home, CreditCard, PiggyBank, Bell, Menu, BarChart3, Settings, LogOut, Sparkles, Shield, TrendingDown } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import Onboarding from "@/pages/onboarding";
 import HomePage from "@/pages/home";
 import Subscriptions from "@/pages/subscriptions";
@@ -38,8 +40,129 @@ const navItems = [
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
+function LandingPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-background/80 border-b">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+              <PiggyBank className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <span className="font-bold text-xl">SubClean</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Button asChild data-testid="button-login">
+              <a href="/api/login">Sign In</a>
+            </Button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="pt-24">
+        <section className="max-w-6xl mx-auto px-6 py-20">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+                Stop Wasting Money on 
+                <span className="text-primary"> Forgotten Subscriptions</span>
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-lg">
+                Track all your subscriptions in one place, get smart reminders before renewals, 
+                and discover how much you can save by canceling unused services.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button size="lg" asChild className="text-lg px-8" data-testid="button-get-started">
+                  <a href="/api/login">Get Started Free</a>
+                </Button>
+              </div>
+              <div className="flex items-center gap-6 text-sm text-muted-foreground pt-4">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-green-500" />
+                  <span>Free forever</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-yellow-500" />
+                  <span>No credit card required</span>
+                </div>
+              </div>
+            </div>
+            <div className="relative hidden lg:block">
+              <div className="bg-card rounded-2xl shadow-2xl p-6 border">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Monthly Spending</h3>
+                    <TrendingDown className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div className="text-4xl font-bold">$127.99</div>
+                  <div className="text-sm text-green-500">-$42.00 since last month</div>
+                  <div className="space-y-3 pt-4">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span>Netflix</span>
+                      <span className="font-medium">$15.99/mo</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span>Spotify</span>
+                      <span className="font-medium">$9.99/mo</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                      <span className="text-red-500">Unused Gym App</span>
+                      <span className="font-medium text-red-500">$29.99/mo</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="max-w-6xl mx-auto px-6 py-20">
+          <h2 className="text-3xl font-bold text-center mb-12">Why SubClean?</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-card rounded-xl p-6 border">
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <CreditCard className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Track Everything</h3>
+              <p className="text-muted-foreground">
+                Keep all your subscriptions in one organized dashboard. Never lose track of recurring charges again.
+              </p>
+            </div>
+            <div className="bg-card rounded-xl p-6 border">
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <Bell className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Smart Reminders</h3>
+              <p className="text-muted-foreground">
+                Get alerts before renewals and when you haven't used a service in a while. Cancel before you're charged.
+              </p>
+            </div>
+            <div className="bg-card rounded-xl p-6 border">
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <PiggyBank className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Save Money</h3>
+              <p className="text-muted-foreground">
+                See exactly how much you're spending and saving. Track your progress as you cut unnecessary costs.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <footer className="border-t py-8">
+          <div className="max-w-6xl mx-auto px-6 text-center text-sm text-muted-foreground">
+            SubClean - Take control of your subscriptions
+          </div>
+        </footer>
+      </main>
+    </div>
+  );
+}
+
 function AppSidebar() {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <Sidebar>
@@ -50,6 +173,11 @@ function AppSidebar() {
           </div>
           <span className="font-bold text-lg">SubClean</span>
         </div>
+        {user && (
+          <div className="mt-3 pt-3 border-t text-sm text-muted-foreground truncate">
+            {user.email || user.firstName || "User"}
+          </div>
+        )}
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
@@ -66,6 +194,14 @@ function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <a href="/api/logout" data-testid="button-logout">
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
@@ -98,7 +234,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Router() {
+function AuthenticatedRouter() {
   const { data: appState, isLoading } = useQuery<AppState>({
     queryKey: ["/api/app-state"],
   });
@@ -129,6 +265,24 @@ function Router() {
       </Switch>
     </MainLayout>
   );
+}
+
+function Router() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LandingPage />;
+  }
+
+  return <AuthenticatedRouter />;
 }
 
 function App() {

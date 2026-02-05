@@ -1,16 +1,37 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertSubscriptionSchema, updateSubscriptionSchema, settingsSchema, type Subscription } from "@shared/schema";
+import { setupAuth, isAuthenticated, registerAuthRoutes } from "./replit_integrations/auth";
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    claims?: {
+      sub: string;
+    };
+  };
+}
+
+function getUserId(req: AuthenticatedRequest): string {
+  return req.user?.claims?.sub || "";
+}
+
+function getParam(param: string | string[]): string {
+  return Array.isArray(param) ? param[0] : param;
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
-  app.get("/api/app-state", async (req, res) => {
+  await setupAuth(app);
+  registerAuthRoutes(app);
+
+  app.get("/api/app-state", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const state = await storage.getAppState();
+      const userId = getUserId(req);
+      const state = await storage.getAppState(userId);
       res.json(state);
     } catch (error) {
       console.error("Error fetching app state:", error);
@@ -18,9 +39,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/onboarding/complete", async (req, res) => {
+  app.post("/api/onboarding/complete", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      await storage.setOnboardingComplete(true);
+      const userId = getUserId(req);
+      await storage.setOnboardingComplete(userId, true);
       res.json({ success: true });
     } catch (error) {
       console.error("Error completing onboarding:", error);
@@ -28,9 +50,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/subscriptions", async (req, res) => {
+  app.get("/api/subscriptions", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const subscriptions = await storage.getAllSubscriptions();
+      const userId = getUserId(req);
+      const subscriptions = await storage.getAllSubscriptions(userId);
       res.json(subscriptions);
     } catch (error) {
       console.error("Error fetching subscriptions:", error);
@@ -38,9 +61,11 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/subscriptions/:id", async (req, res) => {
+  app.get("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const subscription = await storage.getSubscription(req.params.id);
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
+      const subscription = await storage.getSubscription(userId, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -51,14 +76,15 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/subscriptions", async (req, res) => {
+  app.post("/api/subscriptions", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const userId = getUserId(req);
       const parsed = insertSubscriptionSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
 
-      const subscription = await storage.createSubscription({
+      const subscription = await storage.createSubscription(userId, {
         name: parsed.data.name,
         cost: parsed.data.cost,
         currency: parsed.data.currency,
@@ -77,14 +103,16 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/subscriptions/:id", async (req, res) => {
+  app.patch("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
       const parsed = updateSubscriptionSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
 
-      const subscription = await storage.updateSubscription(req.params.id, parsed.data as Partial<Subscription>);
+      const subscription = await storage.updateSubscription(userId, id, parsed.data as Partial<Subscription>);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -95,14 +123,16 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/subscriptions/:id/toggle-cancellation", async (req, res) => {
+  app.patch("/api/subscriptions/:id/toggle-cancellation", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const existing = await storage.getSubscription(req.params.id);
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
+      const existing = await storage.getSubscription(userId, id);
       if (!existing) {
         return res.status(404).json({ error: "Subscription not found" });
       }
 
-      const subscription = await storage.updateSubscription(req.params.id, {
+      const subscription = await storage.updateSubscription(userId, id, {
         markedForCancellation: !existing.markedForCancellation,
       });
 
@@ -113,9 +143,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/subscriptions/:id/cancel", async (req, res) => {
+  app.post("/api/subscriptions/:id/cancel", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const subscription = await storage.cancelSubscription(req.params.id);
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
+      const subscription = await storage.cancelSubscription(userId, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -126,9 +158,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/subscriptions/:id", async (req, res) => {
+  app.delete("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const deleted = await storage.deleteSubscription(req.params.id);
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
+      const deleted = await storage.deleteSubscription(userId, id);
       if (!deleted) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -139,15 +173,17 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/subscriptions/:id/usage", async (req, res) => {
+  app.post("/api/subscriptions/:id/usage", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const subscription = await storage.getSubscription(req.params.id);
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
+      const subscription = await storage.getSubscription(userId, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
 
-      const usageRecord = await storage.addUsageRecord({
-        subscriptionId: req.params.id,
+      const usageRecord = await storage.addUsageRecord(userId, {
+        subscriptionId: id,
         usedAt: new Date(),
       });
 
@@ -158,14 +194,16 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/subscriptions/:id/usage", async (req, res) => {
+  app.get("/api/subscriptions/:id/usage", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const subscription = await storage.getSubscription(req.params.id);
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
+      const subscription = await storage.getSubscription(userId, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
 
-      const records = await storage.getUsageRecords(req.params.id);
+      const records = await storage.getUsageRecords(id);
       res.json(records);
     } catch (error) {
       console.error("Error fetching usage records:", error);
@@ -173,9 +211,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/alerts", async (req, res) => {
+  app.get("/api/alerts", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const alerts = await storage.getAlerts();
+      const userId = getUserId(req);
+      const alerts = await storage.getAlerts(userId);
       res.json(alerts);
     } catch (error) {
       console.error("Error fetching alerts:", error);
@@ -183,9 +222,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/alerts/:id/dismiss", async (req, res) => {
+  app.patch("/api/alerts/:id/dismiss", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const alert = await storage.dismissAlert(req.params.id);
+      const userId = getUserId(req);
+      const id = getParam(req.params.id);
+      const alert = await storage.dismissAlert(userId, id);
       if (!alert) {
         return res.status(404).json({ error: "Alert not found" });
       }
@@ -196,9 +237,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/savings", async (req, res) => {
+  app.get("/api/savings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const savings = await storage.getSavings();
+      const userId = getUserId(req);
+      const savings = await storage.getSavings(userId);
       res.json(savings);
     } catch (error) {
       console.error("Error fetching savings:", error);
@@ -206,9 +248,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/settings", async (req, res) => {
+  app.get("/api/settings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const settings = await storage.getSettings();
+      const userId = getUserId(req);
+      const settings = await storage.getSettings(userId);
       res.json(settings);
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -216,13 +259,14 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/settings", async (req, res) => {
+  app.patch("/api/settings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const userId = getUserId(req);
       const parsed = settingsSchema.partial().safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
-      const settings = await storage.updateSettings(parsed.data);
+      const settings = await storage.updateSettings(userId, parsed.data);
       res.json(settings);
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -230,14 +274,15 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/export/:format", async (req, res) => {
+  app.get("/api/export/:format", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const format = req.params.format as 'json' | 'csv';
+      const userId = getUserId(req);
+      const format = getParam(req.params.format) as 'json' | 'csv';
       if (format !== 'json' && format !== 'csv') {
         return res.status(400).json({ error: "Invalid format. Use 'json' or 'csv'" });
       }
 
-      const data = await storage.exportData(format);
+      const data = await storage.exportData(userId, format);
       
       if (format === 'json') {
         res.setHeader('Content-Type', 'application/json');

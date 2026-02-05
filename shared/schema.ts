@@ -3,20 +3,7 @@ import { pgTable, text, varchar, integer, timestamp, boolean } from "drizzle-orm
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  onboardingComplete: boolean("onboarding_complete").default(false),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export * from "./models/auth";
 
 // Billing cycle options
 export const billingCycles = ["monthly", "yearly", "weekly", "quarterly"] as const;
@@ -58,6 +45,7 @@ export type SubscriptionStatus = typeof subscriptionStatuses[number];
 // Subscriptions table
 export const subscriptions = pgTable("subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
   name: text("name").notNull(),
   cost: integer("cost").notNull(), // stored in cents/smallest currency unit
   currency: text("currency").notNull().default("USD").$type<Currency>(),
@@ -75,6 +63,7 @@ export const subscriptions = pgTable("subscriptions", {
 
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
   id: true,
+  userId: true,
   markedForCancellation: true,
   nextBillingDate: true,
   cancelledDate: true,
