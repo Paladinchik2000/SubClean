@@ -14,6 +14,9 @@ import {
   type BillingCycle,
   type Category,
   type AlertType,
+  type Currency,
+  type Settings,
+  type AppState,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -21,8 +24,10 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  getAppState(): Promise<{ onboardingComplete: boolean }>;
+  getAppState(): Promise<AppState>;
   setOnboardingComplete(complete: boolean): Promise<void>;
+  getSettings(): Promise<Settings>;
+  updateSettings(settings: Partial<Settings>): Promise<Settings>;
   
   getAllSubscriptions(): Promise<SubscriptionWithUsage[]>;
   getSubscription(id: string): Promise<SubscriptionWithUsage | undefined>;
@@ -43,6 +48,8 @@ export interface IStorage {
   getPriceHistory(subscriptionId: string): Promise<PriceHistory[]>;
   
   getSavings(): Promise<{ totalSaved: number; cancelledSubscriptions: SubscriptionWithUsage[] }>;
+  
+  exportData(format: 'json' | 'csv'): Promise<string>;
 }
 
 export class MemStorage implements IStorage {
@@ -52,6 +59,7 @@ export class MemStorage implements IStorage {
   private alerts: Map<string, Alert>;
   private priceHistories: Map<string, PriceHistory>;
   private onboardingComplete: boolean;
+  private settings: Settings;
 
   constructor() {
     this.users = new Map();
@@ -60,6 +68,12 @@ export class MemStorage implements IStorage {
     this.alerts = new Map();
     this.priceHistories = new Map();
     this.onboardingComplete = false;
+    this.settings = {
+      defaultCurrency: "USD",
+      emailNotifications: false,
+      pushoverNotifications: false,
+      renewalReminderDays: 7,
+    };
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -79,12 +93,24 @@ export class MemStorage implements IStorage {
     return user;
   }
 
-  async getAppState(): Promise<{ onboardingComplete: boolean }> {
-    return { onboardingComplete: this.onboardingComplete };
+  async getAppState(): Promise<AppState> {
+    return { 
+      onboardingComplete: this.onboardingComplete,
+      ...this.settings,
+    };
   }
 
   async setOnboardingComplete(complete: boolean): Promise<void> {
     this.onboardingComplete = complete;
+  }
+
+  async getSettings(): Promise<Settings> {
+    return { ...this.settings };
+  }
+
+  async updateSettings(newSettings: Partial<Settings>): Promise<Settings> {
+    this.settings = { ...this.settings, ...newSettings };
+    return { ...this.settings };
   }
 
   async getAllSubscriptions(): Promise<SubscriptionWithUsage[]> {
@@ -181,6 +207,7 @@ export class MemStorage implements IStorage {
       id,
       name: insertSubscription.name,
       cost: insertSubscription.cost,
+      currency: (insertSubscription.currency || this.settings.defaultCurrency) as Currency,
       billingCycle: insertSubscription.billingCycle as BillingCycle,
       category: insertSubscription.category as Category,
       status: insertSubscription.trialEndDate ? "trial" : "active",
@@ -385,6 +412,51 @@ export class MemStorage implements IStorage {
     }
 
     return { totalSaved, cancelledSubscriptions: cancelledSubs };
+  }
+
+  async exportData(format: 'json' | 'csv'): Promise<string> {
+    const subs = await this.getAllSubscriptions();
+    
+    if (format === 'json') {
+      return JSON.stringify({
+        subscriptions: subs.map(s => ({
+          name: s.name,
+          cost: s.cost / 100,
+          currency: s.currency,
+          billingCycle: s.billingCycle,
+          category: s.category,
+          status: s.status,
+          startDate: s.startDate,
+          trialEndDate: s.trialEndDate,
+          cancelledDate: s.cancelledDate,
+          notes: s.notes,
+          lastUsed: s.lastUsed,
+          daysSinceLastUse: s.daysSinceLastUse,
+          usageCount: s.usageCount,
+        })),
+        exportedAt: new Date().toISOString(),
+        settings: this.settings,
+      }, null, 2);
+    } else {
+      const headers = ['Name', 'Cost', 'Currency', 'Billing Cycle', 'Category', 'Status', 'Start Date', 'Trial End Date', 'Cancelled Date', 'Notes', 'Last Used', 'Days Since Last Use', 'Usage Count'];
+      const rows = subs.map(s => [
+        `"${s.name.replace(/"/g, '""')}"`,
+        (s.cost / 100).toFixed(2),
+        s.currency,
+        s.billingCycle,
+        s.category,
+        s.status,
+        s.startDate?.toISOString() || '',
+        s.trialEndDate?.toISOString() || '',
+        s.cancelledDate?.toISOString() || '',
+        `"${(s.notes || '').replace(/"/g, '""')}"`,
+        s.lastUsed?.toISOString() || '',
+        s.daysSinceLastUse?.toString() || '',
+        s.usageCount.toString(),
+      ].join(','));
+      
+      return [headers.join(','), ...rows].join('\n');
+    }
   }
 }
 

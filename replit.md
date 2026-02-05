@@ -33,21 +33,44 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Data Models
 - **Users**: Basic authentication with username/password
-- **Subscriptions**: Tracks name, cost (in cents), billing cycle, category, dates, and cancellation status
+- **Subscriptions**: Tracks name, cost (in cents), currency, billing cycle, category, dates, and cancellation status
 - **Usage Records**: Logs when subscriptions are used for activity tracking
+- **Settings**: User preferences including defaultCurrency, emailNotifications, pushoverNotifications, pushoverUserKey, renewalReminderDays
 
 ### Key Features
 - **Onboarding Flow**: Welcome screen with value proposition and privacy information
-- **Home Dashboard**: Monthly and annual spending summaries, top 3 biggest subscriptions, payment calendar
-- **Payment Calendar**: Visual calendar showing upcoming payment dates with 30-day summary
+- **Home Dashboard**: Monthly and annual spending summaries, top 3 biggest subscriptions, payment calendar, quick stats (avg per subscription, daily cost)
+- **Payment Calendar**: Visual calendar showing upcoming payment dates with 30-day summary and date selection
 - **Subscriptions List**: Filterable by monthly/yearly/trials/flagged subscriptions
 - **Subscription Detail**: Charge history timeline, next billing date, usage tracking, cancel actions
+- **Analytics Page**: Category spending pie chart, billing cycle bar chart, spending breakdown, key metrics
 - **Savings Tracking**: Monitor cancelled subscriptions and total money saved
 - **Alerts System**: Price increases, upcoming renewals, trial endings, unused subscriptions
-- **Sidebar Navigation**: Easy navigation between Home, Subscriptions, Savings, Alerts
+- **Settings Page**: Currency preferences, notification settings, data export
+- **Multi-Currency Support**: 21 currencies (USD, EUR, GBP, JPY, RUB, SEK, PLN, INR, CHF, BRL, COP, UAH, RON, HUF, CAD, AUD, GEL, KRW, KZT, TRY, BDT)
+- **Data Export**: Export subscription data as JSON or CSV
+- **Sidebar Navigation**: Easy navigation between Home, Subscriptions, Analytics, Savings, Alerts, Settings
 - Usage tracking with "days since last use" calculations
 - Trial subscription support with end date tracking
 - Responsive design with mobile support and dark mode
+
+### API Endpoints
+- `GET /api/app-state` - Get app state including onboarding status and settings
+- `POST /api/onboarding/complete` - Mark onboarding as complete
+- `GET /api/subscriptions` - List all subscriptions with usage data
+- `GET /api/subscriptions/:id` - Get subscription details
+- `POST /api/subscriptions` - Create subscription (supports currency field)
+- `PATCH /api/subscriptions/:id` - Update subscription
+- `DELETE /api/subscriptions/:id` - Delete subscription
+- `POST /api/subscriptions/:id/cancel` - Cancel subscription
+- `PATCH /api/subscriptions/:id/toggle-cancellation` - Toggle marked for cancellation
+- `POST /api/subscriptions/:id/usage` - Log usage
+- `GET /api/alerts` - List alerts
+- `PATCH /api/alerts/:id/dismiss` - Dismiss alert
+- `GET /api/savings` - Get savings summary
+- `GET /api/settings` - Get user settings
+- `PATCH /api/settings` - Update settings
+- `GET /api/export/:format` - Export data (json or csv)
 
 ## External Dependencies
 

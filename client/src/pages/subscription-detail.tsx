@@ -160,14 +160,14 @@ export default function SubscriptionDetail() {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold" data-testid="text-detail-cost">
-                {formatCurrency(subscription.cost)}
+                {formatCurrency(subscription.cost, subscription.currency)}
               </p>
               <p className="text-sm text-muted-foreground">
                 /{subscription.billingCycle.replace("ly", "")}
               </p>
               {subscription.billingCycle !== "monthly" && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  ({formatCurrency(monthlyEquivalent)}/mo)
+                  ({formatCurrency(monthlyEquivalent, subscription.currency)}/mo)
                 </p>
               )}
             </div>
@@ -232,7 +232,7 @@ export default function SubscriptionDetail() {
                       year: "numeric",
                     })}
                   </span>
-                  <span className="font-medium">{formatCurrency(charge.amount)}</span>
+                  <span className="font-medium">{formatCurrency(charge.amount, subscription.currency)}</span>
                 </div>
               ))}
             </div>

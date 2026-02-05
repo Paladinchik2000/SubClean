@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertSubscriptionSchema, updateSubscriptionSchema, type Subscription } from "@shared/schema";
+import { insertSubscriptionSchema, updateSubscriptionSchema, settingsSchema, type Subscription } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -61,6 +61,7 @@ export async function registerRoutes(
       const subscription = await storage.createSubscription({
         name: parsed.data.name,
         cost: parsed.data.cost,
+        currency: parsed.data.currency,
         billingCycle: parsed.data.billingCycle,
         category: parsed.data.category,
         startDate: new Date(parsed.data.startDate),
@@ -202,6 +203,54 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching savings:", error);
       res.status(500).json({ error: "Failed to fetch savings" });
+    }
+  });
+
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.patch("/api/settings", async (req, res) => {
+    try {
+      const parsed = settingsSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.message });
+      }
+      const settings = await storage.updateSettings(parsed.data);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  app.get("/api/export/:format", async (req, res) => {
+    try {
+      const format = req.params.format as 'json' | 'csv';
+      if (format !== 'json' && format !== 'csv') {
+        return res.status(400).json({ error: "Invalid format. Use 'json' or 'csv'" });
+      }
+
+      const data = await storage.exportData(format);
+      
+      if (format === 'json') {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', 'attachment; filename=subclean-export.json');
+      } else {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=subclean-export.csv');
+      }
+      
+      res.send(data);
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      res.status(500).json({ error: "Failed to export data" });
     }
   });
 

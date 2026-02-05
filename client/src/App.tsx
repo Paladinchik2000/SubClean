@@ -17,24 +17,25 @@ import {
   SidebarTrigger,
   SidebarInset
 } from "@/components/ui/sidebar";
-import { Home, CreditCard, PiggyBank, Bell, Menu } from "lucide-react";
+import { Home, CreditCard, PiggyBank, Bell, Menu, BarChart3, Settings } from "lucide-react";
 import Onboarding from "@/pages/onboarding";
 import HomePage from "@/pages/home";
 import Subscriptions from "@/pages/subscriptions";
 import SubscriptionDetail from "@/pages/subscription-detail";
 import Savings from "@/pages/savings";
 import Alerts from "@/pages/alerts";
+import Analytics from "@/pages/analytics";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
-
-interface AppState {
-  onboardingComplete: boolean;
-}
+import type { AppState } from "@shared/schema";
 
 const navItems = [
   { title: "Home", href: "/", icon: Home },
   { title: "Subscriptions", href: "/subscriptions", icon: CreditCard },
+  { title: "Analytics", href: "/analytics", icon: BarChart3 },
   { title: "Savings", href: "/savings", icon: PiggyBank },
   { title: "Alerts", href: "/alerts", icon: Bell },
+  { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 function AppSidebar() {
@@ -120,8 +121,10 @@ function Router() {
         <Route path="/" component={HomePage} />
         <Route path="/subscriptions" component={Subscriptions} />
         <Route path="/subscriptions/:id" component={SubscriptionDetail} />
+        <Route path="/analytics" component={Analytics} />
         <Route path="/savings" component={Savings} />
         <Route path="/alerts" component={Alerts} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>

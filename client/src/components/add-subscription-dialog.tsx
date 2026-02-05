@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { billingCycles, categories } from "@shared/schema";
+import { billingCycles, categories, currencies, currencySymbols, type Currency } from "@shared/schema";
 import { getCategoryLabel, getBillingCycleLabel } from "@/lib/utils";
 
 const formSchema = z.object({
@@ -38,6 +38,7 @@ const formSchema = z.object({
     (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
     "Cost must be a positive number"
   ),
+  currency: z.enum(currencies).default("USD"),
   billingCycle: z.enum(billingCycles),
   category: z.enum(categories),
   startDate: z.string().min(1, "Start date is required"),
@@ -53,6 +54,7 @@ interface AddSubscriptionDialogProps {
   onAdd: (data: {
     name: string;
     cost: number;
+    currency?: Currency;
     billingCycle: string;
     category: string;
     startDate: Date;
@@ -61,9 +63,10 @@ interface AddSubscriptionDialogProps {
     notes?: string;
   }) => void;
   isPending?: boolean;
+  defaultCurrency?: Currency;
 }
 
-export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialogProps) {
+export function AddSubscriptionDialog({ onAdd, isPending, defaultCurrency = "USD" }: AddSubscriptionDialogProps) {
   const [open, setOpen] = useState(false);
 
   const form = useForm<FormValues>({
@@ -71,6 +74,7 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
     defaultValues: {
       name: "",
       cost: "",
+      currency: defaultCurrency,
       billingCycle: "monthly",
       category: "other",
       startDate: new Date().toISOString().split("T")[0],
@@ -87,6 +91,7 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
     onAdd({
       name: values.name,
       cost: Math.round(parseFloat(values.cost) * 100),
+      currency: values.currency,
       billingCycle: values.billingCycle,
       category: values.category,
       startDate: new Date(values.startDate),
@@ -133,13 +138,13 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="cost"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cost ($)</FormLabel>
+                    <FormLabel>Cost</FormLabel>
                     <FormControl>
                       <Input 
                         type="number" 
@@ -157,10 +162,35 @@ export function AddSubscriptionDialog({ onAdd, isPending }: AddSubscriptionDialo
 
               <FormField
                 control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-currency">
+                          <SelectValue placeholder="Currency" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {currencies.map((cur) => (
+                          <SelectItem key={cur} value={cur}>
+                            {currencySymbols[cur]} {cur}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="billingCycle"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Billing Cycle</FormLabel>
+                    <FormLabel>Billing</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-billing-cycle">

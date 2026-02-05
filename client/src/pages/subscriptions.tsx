@@ -11,7 +11,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, getMonthlyCost, getCategoryIcon, getCategoryLabel } from "@/lib/utils";
 import { AddSubscriptionDialog } from "@/components/add-subscription-dialog";
-import type { SubscriptionWithUsage } from "@shared/schema";
+import type { SubscriptionWithUsage, AppState, Currency } from "@shared/schema";
 
 type FilterType = "all" | "monthly" | "yearly" | "trials" | "flagged";
 
@@ -23,10 +23,15 @@ export default function Subscriptions() {
     queryKey: ["/api/subscriptions"],
   });
 
+  const { data: appState } = useQuery<AppState>({
+    queryKey: ["/api/app-state"],
+  });
+
   const addMutation = useMutation({
     mutationFn: async (data: {
       name: string;
       cost: number;
+      currency?: Currency;
       billingCycle: string;
       category: string;
       startDate: Date;
@@ -98,6 +103,7 @@ export default function Subscriptions() {
         <AddSubscriptionDialog
           onAdd={(data) => addMutation.mutate(data)}
           isPending={addMutation.isPending}
+          defaultCurrency={appState?.defaultCurrency}
         />
       </div>
 
@@ -146,6 +152,7 @@ export default function Subscriptions() {
               <AddSubscriptionDialog
                 onAdd={(data) => addMutation.mutate(data)}
                 isPending={addMutation.isPending}
+                defaultCurrency={appState?.defaultCurrency}
               />
             )}
           </CardContent>
@@ -190,7 +197,7 @@ export default function Subscriptions() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-foreground" data-testid={`text-sub-cost-${sub.id}`}>
-                        {formatCurrency(sub.cost)}
+                        {formatCurrency(sub.cost, sub.currency)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         /{sub.billingCycle.replace("ly", "")}

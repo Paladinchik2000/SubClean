@@ -22,6 +22,21 @@ export type User = typeof users.$inferSelect;
 export const billingCycles = ["monthly", "yearly", "weekly", "quarterly"] as const;
 export type BillingCycle = typeof billingCycles[number];
 
+// Supported currencies
+export const currencies = [
+  "USD", "EUR", "GBP", "JPY", "RUB", "SEK", "PLN", "INR", "CHF", 
+  "BRL", "COP", "UAH", "RON", "HUF", "CAD", "AUD", "GEL", "KRW", 
+  "KZT", "TRY", "BDT"
+] as const;
+export type Currency = typeof currencies[number];
+
+export const currencySymbols: Record<Currency, string> = {
+  USD: "$", EUR: "€", GBP: "£", JPY: "¥", RUB: "₽", SEK: "kr",
+  PLN: "zł", INR: "₹", CHF: "CHF", BRL: "R$", COP: "$", UAH: "₴",
+  RON: "lei", HUF: "Ft", CAD: "C$", AUD: "A$", GEL: "₾", KRW: "₩",
+  KZT: "₸", TRY: "₺", BDT: "৳"
+};
+
 // Subscription categories
 export const categories = [
   "streaming",
@@ -44,7 +59,8 @@ export type SubscriptionStatus = typeof subscriptionStatuses[number];
 export const subscriptions = pgTable("subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  cost: integer("cost").notNull(), // stored in cents
+  cost: integer("cost").notNull(), // stored in cents/smallest currency unit
+  currency: text("currency").notNull().default("USD").$type<Currency>(),
   billingCycle: text("billing_cycle").notNull().$type<BillingCycle>(),
   category: text("category").notNull().$type<Category>(),
   status: text("status").notNull().default("active").$type<SubscriptionStatus>(),
@@ -66,6 +82,7 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
 }).extend({
   startDate: z.coerce.date(),
   trialEndDate: z.coerce.date().optional().nullable(),
+  currency: z.enum(currencies).optional().default("USD"),
 });
 
 export const updateSubscriptionSchema = insertSubscriptionSchema.partial().extend({
@@ -146,4 +163,20 @@ export interface AlertWithSubscription extends Alert {
 // App state for onboarding
 export interface AppState {
   onboardingComplete: boolean;
+  defaultCurrency: Currency;
+  emailNotifications: boolean;
+  pushoverNotifications: boolean;
+  pushoverUserKey?: string;
+  renewalReminderDays: number;
 }
+
+// Settings schema
+export const settingsSchema = z.object({
+  defaultCurrency: z.enum(currencies).default("USD"),
+  emailNotifications: z.boolean().default(false),
+  pushoverNotifications: z.boolean().default(false),
+  pushoverUserKey: z.string().optional(),
+  renewalReminderDays: z.number().min(1).max(30).default(7),
+});
+
+export type Settings = z.infer<typeof settingsSchema>;

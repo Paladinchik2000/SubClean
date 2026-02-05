@@ -12,7 +12,8 @@ import {
   Package,
   type LucideIcon 
 } from "lucide-react";
-import type { BillingCycle, Category } from "@shared/schema";
+import type { BillingCycle, Category, Currency } from "@shared/schema";
+import { currencySymbols } from "@shared/schema";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -34,11 +35,16 @@ export function getCategoryIcon(category: Category | string): LucideIcon {
   return categoryIcons[category as Category] || Package;
 }
 
-export function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(cents / 100);
+export function formatCurrency(cents: number, currency: Currency = "USD"): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency,
+    }).format(cents / 100);
+  } catch {
+    const symbol = currencySymbols[currency] || "$";
+    return `${symbol}${(cents / 100).toFixed(2)}`;
+  }
 }
 
 export function getMonthlyCost(cost: number, billingCycle: BillingCycle): number {
