@@ -37,11 +37,17 @@ Preferred communication style: Simple, everyday language.
 - **Usage Records**: Logs when subscriptions are used for activity tracking
 
 ### Key Features
-- Dashboard with subscription overview and spending statistics
-- Category-based spending breakdown with pie chart visualization
+- **Onboarding Flow**: Welcome screen with value proposition and privacy information
+- **Home Dashboard**: Monthly and annual spending summaries, top 3 biggest subscriptions, payment calendar
+- **Payment Calendar**: Visual calendar showing upcoming payment dates with 30-day summary
+- **Subscriptions List**: Filterable by monthly/yearly/trials/flagged subscriptions
+- **Subscription Detail**: Charge history timeline, next billing date, usage tracking, cancel actions
+- **Savings Tracking**: Monitor cancelled subscriptions and total money saved
+- **Alerts System**: Price increases, upcoming renewals, trial endings, unused subscriptions
+- **Sidebar Navigation**: Easy navigation between Home, Subscriptions, Savings, Alerts
 - Usage tracking with "days since last use" calculations
-- Cancellation marking for subscriptions to cancel
-- Responsive design with mobile support
+- Trial subscription support with end date tracking
+- Responsive design with mobile support and dark mode
 
 ## External Dependencies
 
