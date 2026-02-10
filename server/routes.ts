@@ -2,21 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertSubscriptionSchema, updateSubscriptionSchema, settingsSchema, type Subscription } from "@shared/schema";
-import { setupAuth, isAuthenticated, registerAuthRoutes } from "./replit_integrations/auth";
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    claims?: {
-      sub: string;
-    };
-  };
-}
-
-function getUserId(req: AuthenticatedRequest): string | null {
-  const userId = req.user?.claims?.sub;
-  if (!userId) return null;
-  return userId;
-}
+const LOCAL_USER_ID = "local";
 
 function getParam(param: string | string[]): string {
   return Array.isArray(param) ? param[0] : param;
@@ -26,17 +13,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
-  await setupAuth(app);
-  registerAuthRoutes(app);
 
-  app.get("/api/app-state", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/app-state", async (_req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
-      const state = await storage.getAppState(userId);
+      const state = await storage.getAppState(LOCAL_USER_ID);
       res.json(state);
     } catch (error) {
       console.error("Error fetching app state:", error);
@@ -44,13 +24,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/onboarding/complete", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/onboarding/complete", async (_req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
-      await storage.setOnboardingComplete(userId, true);
+      await storage.setOnboardingComplete(LOCAL_USER_ID, true);
       res.json({ success: true });
     } catch (error) {
       console.error("Error completing onboarding:", error);
@@ -58,13 +34,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/subscriptions", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/subscriptions", async (_req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
-      const subscriptions = await storage.getAllSubscriptions(userId);
+      const subscriptions = await storage.getAllSubscriptions(LOCAL_USER_ID);
       res.json(subscriptions);
     } catch (error) {
       console.error("Error fetching subscriptions:", error);
@@ -72,14 +44,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/subscriptions/:id", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
-      const subscription = await storage.getSubscription(userId, id);
+      const subscription = await storage.getSubscription(LOCAL_USER_ID, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -90,18 +58,14 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/subscriptions", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/subscriptions", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const parsed = insertSubscriptionSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
 
-      const subscription = await storage.createSubscription(userId, {
+      const subscription = await storage.createSubscription(LOCAL_USER_ID, {
         name: parsed.data.name,
         cost: parsed.data.cost,
         currency: parsed.data.currency,
@@ -120,19 +84,15 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/subscriptions/:id", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
       const parsed = updateSubscriptionSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
 
-      const subscription = await storage.updateSubscription(userId, id, parsed.data as Partial<Subscription>);
+      const subscription = await storage.updateSubscription(LOCAL_USER_ID, id, parsed.data as Partial<Subscription>);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -143,19 +103,15 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/subscriptions/:id/toggle-cancellation", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/subscriptions/:id/toggle-cancellation", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
-      const existing = await storage.getSubscription(userId, id);
+      const existing = await storage.getSubscription(LOCAL_USER_ID, id);
       if (!existing) {
         return res.status(404).json({ error: "Subscription not found" });
       }
 
-      const subscription = await storage.updateSubscription(userId, id, {
+      const subscription = await storage.updateSubscription(LOCAL_USER_ID, id, {
         markedForCancellation: !existing.markedForCancellation,
       });
 
@@ -166,14 +122,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/subscriptions/:id/cancel", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/subscriptions/:id/cancel", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
-      const subscription = await storage.cancelSubscription(userId, id);
+      const subscription = await storage.cancelSubscription(LOCAL_USER_ID, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -184,14 +136,10 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/subscriptions/:id", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/subscriptions/:id", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
-      const deleted = await storage.deleteSubscription(userId, id);
+      const deleted = await storage.deleteSubscription(LOCAL_USER_ID, id);
       if (!deleted) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -202,19 +150,15 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/subscriptions/:id/usage", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/subscriptions/:id/usage", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
-      const subscription = await storage.getSubscription(userId, id);
+      const subscription = await storage.getSubscription(LOCAL_USER_ID, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
 
-      const usageRecord = await storage.addUsageRecord(userId, {
+      const usageRecord = await storage.addUsageRecord(LOCAL_USER_ID, {
         subscriptionId: id,
         usedAt: new Date(),
       });
@@ -226,14 +170,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/subscriptions/:id/usage", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/subscriptions/:id/usage", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
-      const subscription = await storage.getSubscription(userId, id);
+      const subscription = await storage.getSubscription(LOCAL_USER_ID, id);
       if (!subscription) {
         return res.status(404).json({ error: "Subscription not found" });
       }
@@ -246,13 +186,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/alerts", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/alerts", async (_req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
-      const alerts = await storage.getAlerts(userId);
+      const alerts = await storage.getAlerts(LOCAL_USER_ID);
       res.json(alerts);
     } catch (error) {
       console.error("Error fetching alerts:", error);
@@ -260,14 +196,10 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/alerts/:id/dismiss", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/alerts/:id/dismiss", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const id = getParam(req.params.id);
-      const alert = await storage.dismissAlert(userId, id);
+      const alert = await storage.dismissAlert(LOCAL_USER_ID, id);
       if (!alert) {
         return res.status(404).json({ error: "Alert not found" });
       }
@@ -278,13 +210,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/savings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/savings", async (_req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
-      const savings = await storage.getSavings(userId);
+      const savings = await storage.getSavings(LOCAL_USER_ID);
       res.json(savings);
     } catch (error) {
       console.error("Error fetching savings:", error);
@@ -292,13 +220,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/settings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/settings", async (_req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
-      const settings = await storage.getSettings(userId);
+      const settings = await storage.getSettings(LOCAL_USER_ID);
       res.json(settings);
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -306,17 +230,13 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/settings", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/settings", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const parsed = settingsSchema.partial().safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.message });
       }
-      const settings = await storage.updateSettings(userId, parsed.data);
+      const settings = await storage.updateSettings(LOCAL_USER_ID, parsed.data);
       res.json(settings);
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -324,18 +244,14 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/export/:format", isAuthenticated, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/export/:format", async (req: Request, res: Response) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ error: "User ID not found" });
-      }
       const format = getParam(req.params.format) as 'json' | 'csv';
       if (format !== 'json' && format !== 'csv') {
         return res.status(400).json({ error: "Invalid format. Use 'json' or 'csv'" });
       }
 
-      const data = await storage.exportData(userId, format);
+      const data = await storage.exportData(LOCAL_USER_ID, format);
       
       if (format === 'json') {
         res.setHeader('Content-Type', 'application/json');

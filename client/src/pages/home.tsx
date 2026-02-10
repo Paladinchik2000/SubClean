@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { DollarSign, CreditCard, TrendingUp, ArrowRight, Plus } from "lucide-react";
@@ -8,12 +9,33 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PaymentCalendar } from "@/components/payment-calendar";
 import { ServiceIcon } from "@/components/service-icon";
 import { formatCurrency, getMonthlyCost, getYearlyCost, getCategoryLabel } from "@/lib/utils";
-import type { SubscriptionWithUsage } from "@shared/schema";
+import { checkAndNotifyRenewals } from "@/lib/notifications";
+import type { SubscriptionWithUsage, Settings } from "@shared/schema";
 
 export default function Home() {
   const { data: subscriptions, isLoading } = useQuery<SubscriptionWithUsage[]>({
     queryKey: ["/api/subscriptions"],
   });
+
+  const { data: settings } = useQuery<Settings>({
+    queryKey: ["/api/settings"],
+  });
+
+  useEffect(() => {
+    if (subscriptions && subscriptions.length > 0) {
+      const activeForNotification = subscriptions
+        .filter(s => s.status !== "cancelled")
+        .map(s => ({
+          id: s.id,
+          name: s.name,
+          cost: s.cost,
+          currency: s.currency,
+          billingCycle: s.billingCycle,
+          startDate: s.startDate,
+        }));
+      checkAndNotifyRenewals(activeForNotification, settings?.renewalReminderDays ?? 1);
+    }
+  }, [subscriptions, settings]);
 
   const activeSubscriptions = subscriptions?.filter(s => s.status !== "cancelled") || [];
   

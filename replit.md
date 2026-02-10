@@ -2,7 +2,7 @@
 
 ## Overview
 
-SubClean is a subscription management application that helps users track their recurring subscriptions, monitor usage patterns, and get smart reminders to cancel unused services. The app provides a dashboard with spending analytics, usage tracking, and cancellation management to help users save money on forgotten or underutilized subscriptions.
+SubClean is a privacy-first, offline subscription management application. All data stays on the user's device - no accounts, no cloud sync, no data sharing. The app tracks recurring subscriptions, monitors usage patterns, sends local browser notifications before renewals, and provides analytics to help users save money.
 
 ## User Preferences
 
@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Framework**: Express.js 5 with TypeScript
 - **API Design**: RESTful API endpoints under `/api/` prefix
-- **Authentication**: Replit Auth (OpenID Connect) supporting Google, GitHub, and email/password login
+- **Authentication**: Removed - app uses local-only data with hardcoded "local" userId (no sign-in required)
 - **Development Server**: Vite dev server with HMR, proxied through Express
 - **Production Build**: esbuild for server bundling, Vite for client bundling
 
@@ -35,17 +35,27 @@ Preferred communication style: Simple, everyday language.
 - **Database Migrations**: Drizzle Kit for schema migrations (`db:push` command)
 
 ### Authentication & Authorization
-- **Provider**: Replit Auth (OIDC-based) via `server/replit_integrations/auth/`
-- **Auth Routes**: `/api/login` (start OAuth flow), `/api/logout` (end session), `/api/auth/user` (get current user)
-- **Session Storage**: PostgreSQL sessions table using connect-pg-simple
-- **Middleware**: `isAuthenticated` middleware protects all API routes
-- **Data Isolation**: All subscriptions, settings, and alerts are user-specific via userId foreign key
+- **Provider**: None (removed) - app is fully local/offline
+- **User Model**: Hardcoded "local" userId for all data operations
+- **No Auth Routes**: No login/logout/session management
+- **Data**: Single-user local data, no multi-user isolation needed
 
 ### Core Data Models
 - **Users**: Authentication via Replit Auth (id, email, firstName, lastName from OIDC claims)
 - **Subscriptions**: Tracks name, cost (in cents), currency, billing cycle, category, dates, and cancellation status
 - **Usage Records**: Logs when subscriptions are used for activity tracking
 - **Settings**: User preferences including defaultCurrency, emailNotifications, pushoverNotifications, pushoverUserKey, renewalReminderDays
+
+### Service Presets
+- 27 popular subscription services with pre-filled name, cost, currency, billing cycle, and category
+- Presets include: Netflix, Spotify, YouTube Premium, Disney+, Apple Music, Adobe CC, Microsoft 365, ChatGPT Plus, etc.
+- Users can search/filter presets or add a custom subscription
+
+### Local Notifications
+- Browser Notification API for renewal reminders
+- Notifications processed entirely on-device (no server push)
+- localStorage-based dedup to prevent repeated notifications
+- Configurable reminder days before renewal in Settings
 
 ### Key Features
 - **Onboarding Flow**: Welcome screen with value proposition and privacy information

@@ -2,9 +2,10 @@ import { useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Settings as SettingsIcon, Download, Globe, Bell, Smartphone, Save, Upload, FileUp, Check, X } from "lucide-react";
+import { Settings as SettingsIcon, Download, Globe, Bell, Save, Upload, Check, X, BellRing, WifiOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ import { currencies, currencySymbols, settingsSchema, type Settings } from "@sha
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useEffect } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { requestNotificationPermission, getNotificationStatus } from "@/lib/notifications";
 
 interface ImportResult {
   success: number;
@@ -40,6 +42,7 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState(getNotificationStatus());
 
   const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ["/api/settings"],
@@ -60,8 +63,6 @@ export default function SettingsPage() {
       form.reset(settings);
     }
   }, [settings, form]);
-
-  const pushoverNotifications = form.watch("pushoverNotifications");
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: Partial<Settings>) => {
@@ -99,6 +100,23 @@ export default function SettingsPage() {
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleEnableNotifications = async () => {
+    const granted = await requestNotificationPermission();
+    setNotificationStatus(getNotificationStatus());
+    if (granted) {
+      toast({
+        title: "Notifications enabled",
+        description: "You'll receive local reminders before subscription renewals.",
+      });
+    } else {
+      toast({
+        title: "Notifications blocked",
+        description: "Please enable notifications in your browser settings.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -252,10 +270,45 @@ export default function SettingsPage() {
                 Notifications
               </CardTitle>
               <CardDescription>
-                Configure how you want to be reminded about upcoming renewals.
+                Configure local browser notifications for upcoming renewals.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm">Browser Notifications</p>
+                    <Badge variant="outline" className="gap-1 text-xs">
+                      <WifiOff className="w-3 h-3" />
+                      Local Only
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {notificationStatus === "granted" 
+                      ? "Notifications are enabled. You'll receive local reminders."
+                      : notificationStatus === "denied"
+                      ? "Notifications are blocked. Enable them in your browser settings."
+                      : "Enable browser notifications to get renewal reminders."}
+                  </p>
+                </div>
+                {notificationStatus === "granted" ? (
+                  <Badge variant="outline" className="shrink-0 gap-1 text-green-600 border-green-200 dark:text-green-400 dark:border-green-800">
+                    <BellRing className="w-3 h-3" />
+                    Enabled
+                  </Badge>
+                ) : (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleEnableNotifications}
+                    data-testid="button-enable-notifications"
+                  >
+                    <BellRing className="w-4 h-4 mr-2" />
+                    Enable
+                  </Button>
+                )}
+              </div>
+
               <FormField
                 control={form.control}
                 name="renewalReminderDays"
@@ -273,82 +326,11 @@ export default function SettingsPage() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Get notified this many days before a subscription renews.
+                      Get notified this many days before a subscription renews. All notifications are processed locally on your device.
                     </FormDescription>
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="emailNotifications"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <FormLabel>Email Notifications</FormLabel>
-                      <FormDescription>
-                        Receive renewal reminders via email.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-email-notifications"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="pushoverNotifications"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <FormLabel>Pushover Notifications</FormLabel>
-                        <Smartphone className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <FormDescription>
-                        Receive push notifications on your mobile device.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-pushover-notifications"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {pushoverNotifications && (
-                <FormField
-                  control={form.control}
-                  name="pushoverUserKey"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Pushover User Key</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="Enter your Pushover user key"
-                          {...field}
-                          value={field.value || ""}
-                          data-testid="input-pushover-key"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Get your user key from the Pushover app or website.
-                      </FormDescription>
-                    </FormItem>
-                  )}
-                />
-              )}
             </CardContent>
           </Card>
 
