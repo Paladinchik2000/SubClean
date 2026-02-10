@@ -1,11 +1,8 @@
-import { 
-  Tv, Music, Gamepad2, Briefcase, Dumbbell, 
-  Newspaper, Cloud, UtensilsCrossed, Box, 
-  AlertTriangle, CheckCircle2, Clock, Bell, Trash2
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Bell, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ServiceIcon } from "@/components/service-icon";
 import { 
   formatCurrency, 
   getMonthlyCost, 
@@ -13,18 +10,6 @@ import {
   getBillingCycleLabel 
 } from "@/lib/utils";
 import type { Category, SubscriptionWithUsage } from "@shared/schema";
-
-const categoryIcons: Record<Category, typeof Tv> = {
-  streaming: Tv,
-  music: Music,
-  gaming: Gamepad2,
-  productivity: Briefcase,
-  fitness: Dumbbell,
-  news: Newspaper,
-  cloud: Cloud,
-  food: UtensilsCrossed,
-  other: Box,
-};
 
 interface SubscriptionCardProps {
   subscription: SubscriptionWithUsage;
@@ -43,7 +28,6 @@ export function SubscriptionCard({
   isMarkingUsed,
   isTogglingCancellation,
 }: SubscriptionCardProps) {
-  const CategoryIcon = categoryIcons[subscription.category as Category] || Box;
   const monthlyCost = getMonthlyCost(subscription.cost, subscription.billingCycle);
   const isUnused = subscription.daysSinceLastUse !== null && subscription.daysSinceLastUse >= 60;
   const isWarning = subscription.daysSinceLastUse !== null && 
@@ -62,13 +46,11 @@ export function SubscriptionCard({
       data-testid={`card-subscription-${subscription.id}`}
     >
       <div className="flex items-start gap-4">
-        <div className={`p-3 rounded-md ${
-          subscription.markedForCancellation 
-            ? "bg-destructive/10 text-destructive" 
-            : "bg-primary/10 text-primary"
-        }`}>
-          <CategoryIcon className="w-6 h-6" />
-        </div>
+        <ServiceIcon 
+          name={subscription.name} 
+          category={subscription.category as Category} 
+          size="lg"
+        />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 flex-wrap">

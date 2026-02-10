@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PaymentCalendar } from "@/components/payment-calendar";
-import { formatCurrency, getMonthlyCost, getYearlyCost, getCategoryIcon, getCategoryLabel } from "@/lib/utils";
+import { ServiceIcon } from "@/components/service-icon";
+import { formatCurrency, getMonthlyCost, getYearlyCost, getCategoryLabel } from "@/lib/utils";
 import type { SubscriptionWithUsage } from "@shared/schema";
 
 export default function Home() {
@@ -117,7 +118,6 @@ export default function Home() {
               </div>
               <div className="space-y-3">
                 {topSubscriptions.map((sub, index) => {
-                  const CategoryIcon = getCategoryIcon(sub.category);
                   return (
                     <Link key={sub.id} href={`/subscriptions/${sub.id}`}>
                       <Card 
@@ -125,9 +125,7 @@ export default function Home() {
                         data-testid={`card-top-subscription-${index}`}
                       >
                         <CardContent className="flex items-center gap-4 p-4">
-                          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                            <CategoryIcon className="w-5 h-5 text-primary" />
-                          </div>
+                          <ServiceIcon name={sub.name} category={sub.category as any} size="md" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-foreground truncate">{sub.name}</p>
                             <p className="text-sm text-muted-foreground">{getCategoryLabel(sub.category)}</p>

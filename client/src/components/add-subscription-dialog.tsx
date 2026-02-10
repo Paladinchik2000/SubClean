@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, AlertTriangle } from "lucide-react";
+import { matchServiceIcon } from "@/lib/service-icons";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -91,6 +92,11 @@ export function AddSubscriptionDialog({ onAdd, isPending, defaultCurrency = "USD
   const isTrial = form.watch("isTrial");
   const watchedName = form.watch("name");
 
+  const matchedIcon = useMemo(() => {
+    if (watchedName.trim().length < 2) return null;
+    return matchServiceIcon(watchedName);
+  }, [watchedName]);
+
   useEffect(() => {
     if (watchedName.trim().length >= 3) {
       const normalizedInput = watchedName.toLowerCase().trim();
@@ -158,13 +164,21 @@ export function AddSubscriptionDialog({ onAdd, isPending, defaultCurrency = "USD
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Service Name</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="Netflix, Spotify, etc." 
-                      {...field} 
-                      data-testid="input-subscription-name"
-                    />
-                  </FormControl>
+                  <div className="relative">
+                    <FormControl>
+                      <Input 
+                        placeholder="Netflix, Spotify, etc." 
+                        {...field} 
+                        className={matchedIcon ? "pr-10" : ""}
+                        data-testid="input-subscription-name"
+                      />
+                    </FormControl>
+                    {matchedIcon && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2" data-testid="icon-preview-matched">
+                        <matchedIcon.icon style={{ color: matchedIcon.color, width: 20, height: 20 }} />
+                      </div>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

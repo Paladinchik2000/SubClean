@@ -3,7 +3,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays } from "lucide-react";
-import { formatCurrency, getNextBillingDate, getCategoryIcon, formatDate } from "@/lib/utils";
+import { ServiceIcon, ServiceIconInline } from "@/components/service-icon";
+import { formatCurrency, getNextBillingDate, formatDate } from "@/lib/utils";
 import type { SubscriptionWithUsage, BillingCycle } from "@shared/schema";
 
 interface PaymentCalendarProps {
@@ -92,16 +93,13 @@ export function PaymentCalendar({ subscriptions }: PaymentCalendarProps) {
             </p>
             <div className="space-y-2">
               {selectedPayments.map(({ subscription }) => {
-                const CategoryIcon = getCategoryIcon(subscription.category);
                 return (
                   <div
                     key={subscription.id}
                     className="flex items-center gap-3 p-2 rounded-md bg-muted/50"
                     data-testid={`calendar-payment-${subscription.id}`}
                   >
-                    <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
-                      <CategoryIcon className="w-4 h-4 text-primary" />
-                    </div>
+                    <ServiceIcon name={subscription.name} category={subscription.category as any} size="sm" />
                     <span className="flex-1 text-sm font-medium">{subscription.name}</span>
                     <span className="font-semibold">{formatCurrency(subscription.cost)}</span>
                   </div>
@@ -132,14 +130,13 @@ export function PaymentCalendar({ subscriptions }: PaymentCalendarProps) {
             </p>
             <div className="space-y-1 max-h-40 overflow-y-auto">
               {next30Days.slice(0, 5).map(({ subscription, date }) => {
-                const CategoryIcon = getCategoryIcon(subscription.category);
                 return (
                   <div
                     key={subscription.id}
                     className="flex items-center gap-2 py-1"
                     data-testid={`upcoming-payment-${subscription.id}`}
                   >
-                    <CategoryIcon className="w-3 h-3 text-muted-foreground" />
+                    <ServiceIconInline name={subscription.name} category={subscription.category as any} size={14} />
                     <span className="flex-1 text-sm truncate">{subscription.name}</span>
                     <span className="text-xs text-muted-foreground">
                       {formatDate(date)}

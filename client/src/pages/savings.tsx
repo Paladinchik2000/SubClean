@@ -4,7 +4,8 @@ import { PiggyBank, TrendingUp, Calendar, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrency, getCategoryIcon, getCategoryLabel, getMonthlyCost } from "@/lib/utils";
+import { formatCurrency, getCategoryLabel, getMonthlyCost } from "@/lib/utils";
+import { ServiceIcon } from "@/components/service-icon";
 import type { SubscriptionWithUsage } from "@shared/schema";
 
 interface SavingsData {
@@ -99,13 +100,10 @@ export default function Savings() {
             <h2 className="text-lg font-semibold mb-4">Cancelled Subscriptions</h2>
             <div className="space-y-3">
               {cancelledSubscriptions.map((sub) => {
-                const CategoryIcon = getCategoryIcon(sub.category);
                 return (
                   <Card key={sub.id} data-testid={`card-cancelled-${sub.id}`}>
                     <CardContent className="flex items-center gap-4 p-4">
-                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-green-500/10">
-                        <CategoryIcon className="w-6 h-6 text-green-600" />
-                      </div>
+                      <ServiceIcon name={sub.name} category={sub.category as any} size="lg" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground truncate">{sub.name}</p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">

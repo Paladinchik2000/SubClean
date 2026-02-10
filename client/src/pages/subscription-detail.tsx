@@ -17,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, getCategoryIcon, getCategoryLabel, getMonthlyCost } from "@/lib/utils";
+import { ServiceIcon } from "@/components/service-icon";
+import { formatCurrency, getCategoryLabel, getMonthlyCost } from "@/lib/utils";
 import type { SubscriptionWithUsage } from "@shared/schema";
 
 export default function SubscriptionDetail() {
@@ -114,7 +115,6 @@ export default function SubscriptionDetail() {
     );
   }
 
-  const CategoryIcon = getCategoryIcon(subscription.category);
   const isUnused = subscription.daysSinceLastUse !== null && subscription.daysSinceLastUse >= 60;
   const monthlyEquivalent = getMonthlyCost(subscription.cost, subscription.billingCycle);
 
@@ -133,9 +133,7 @@ export default function SubscriptionDetail() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-              <CategoryIcon className="w-7 h-7 text-primary" />
-            </div>
+            <ServiceIcon name={subscription.name} category={subscription.category as any} size="lg" />
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold" data-testid="text-detail-name">

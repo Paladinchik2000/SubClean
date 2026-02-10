@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, getMonthlyCost, getCategoryIcon, getCategoryLabel } from "@/lib/utils";
+import { formatCurrency, getMonthlyCost, getCategoryLabel } from "@/lib/utils";
+import { ServiceIcon } from "@/components/service-icon";
 import { AddSubscriptionDialog } from "@/components/add-subscription-dialog";
 import type { SubscriptionWithUsage, AppState, Currency } from "@shared/schema";
 
@@ -180,7 +181,6 @@ export default function Subscriptions() {
       ) : (
         <div className="space-y-3">
           {filteredSubscriptions.map((sub) => {
-            const CategoryIcon = getCategoryIcon(sub.category);
             const isUnused = sub.daysSinceLastUse !== null && sub.daysSinceLastUse >= 60;
             
             return (
@@ -190,9 +190,7 @@ export default function Subscriptions() {
                   data-testid={`card-subscription-${sub.id}`}
                 >
                   <CardContent className="flex items-center gap-4 p-4">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
-                      <CategoryIcon className="w-6 h-6 text-primary" />
-                    </div>
+                    <ServiceIcon name={sub.name} category={sub.category as any} size="lg" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-foreground truncate" data-testid={`text-sub-name-${sub.id}`}>
